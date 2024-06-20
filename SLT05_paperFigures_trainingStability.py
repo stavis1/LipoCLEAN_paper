@@ -45,6 +45,6 @@ def run_MSDpostprocess(seed):
 
 N = 32
 jobs = range(N)
-sys.argv += '--options options_trainingStability.toml'
+sys.argv += '--options options_trainingStability.toml'.split()
 with Pool(N) as p:
     _ = p.map(run_MSDpostprocess, jobs)
