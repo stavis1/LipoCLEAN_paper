@@ -246,6 +246,35 @@ plt.close('all')
 # Figure S1
 # =============================================================================
 
+data_dir = 'data/other_analyses/trainingStability/'
+results = []
+for result in os.listdir(data_dir):
+    data = read_data(data_dir + result)
+    data = data[np.isfinite(data['label'])]
+    data = data[data['split'] == 'test']
+    results.append(data)
+
+fig, ax = plt.subplots()
+for result in results:
+    tprs, fprs = ROC(result['score'], result['label'])
+    ax.plot(fprs, tprs, '-k', linewidth = 1, alpha = 0.5)
+
+ax.plot([0,1],[0,1], '--g', linewidth = 0.5)
+y0,y1 = ax.get_ylim()
+x0,x1 = ax.get_xlim()
+ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+ax.set_ylim(-.001,1.001)
+ax.set_xlim(-.001,1.001)
+# ax.set_facecolor('lightgrey')
+ax.set_ylabel('True Positive Rate', fontsize = fsize)
+ax.set_xlabel('False Positive Rate', fontsize = fsize)
+fig.savefig(f'{fig_dir}FigureS1.png',
+            bbox_inches = 'tight', dpi = 900)
+
+# =============================================================================
+# Figure S2
+# =============================================================================
+
 data_dir = 'MSDpostprocess/build/QE_Pro_model_training/'
 data_files = [f for f in os.listdir(data_dir) if f.endswith('.tsv') and not f.startswith('not_')]
 good = []
@@ -306,5 +335,5 @@ for i,lipid in enumerate(['PI', 'PG']):
         patches = [mpatches.Patch(color='k', label='other lipids'),
                    mpatches.Patch(color=highlight, label='class of interest')]
         ax.legend(handles = patches)
-fig.savefig(f'{fig_dir}FigureS1.png',
+fig.savefig(f'{fig_dir}FigureS2.png',
             bbox_inches = 'tight', dpi = 900)
