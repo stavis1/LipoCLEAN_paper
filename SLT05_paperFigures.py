@@ -337,3 +337,29 @@ for i,lipid in enumerate(['PI', 'PG']):
         ax.legend(handles = patches)
 fig.savefig(f'{fig_dir}FigureS2.png',
             bbox_inches = 'tight', dpi = 900)
+
+# =============================================================================
+# table S1
+# =============================================================================
+
+data_dir = 'MSDpostprocess/build/build_data/'
+files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
+data = []
+for f in files:
+    tmp = pd.read_csv(data_dir + f, sep = '\t', skiprows = 4)
+    tmp = tmp[np.isfinite(tmp['label'])]
+    dataset = re.search(r'\A([^_]+)_', f).group(1)
+    if dataset == 'LTQPro':
+        dataset = 1 if 'Laccaria' in f else 2
+    else:
+        dataset = 3 if dataset == 'QE' else 4
+    tmp['dataset'] = [f'Dataset {dataset}']*tmp.shape[0]
+    data.append(tmp)
+data = pd.concat(data)
+
+class_counts = pd.crosstab(data['Ontology'], data['dataset'])
+class_counts['Total'] = np.sum(class_counts, axis =1)
+class_counts = class_counts.sort_values('Total', ascending = False)
+class_counts.to_csv('presentations_and_reports/paper/figures/supplementary_table_1.tsv',
+                    sep = '\t')
+
