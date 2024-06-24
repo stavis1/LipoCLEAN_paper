@@ -16,6 +16,7 @@ from sklearn.metrics import roc_auc_score
 import matplotlib.patches as mpatches
 from matplotlib import cm
 import matplotlib
+from matplotlib.gridspec import GridSpec
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -71,6 +72,11 @@ def ROC(scores, labels):
     fprs.append(1)
     return (tprs, fprs)
 
+plsda_model = Pipeline([('scalar', StandardScaler()),
+                        ('pls', PLSRegression(n_components=2))])
+lreg_model = Pipeline([('scalar', StandardScaler()),
+                       ('logreg', LogisticRegression())])
+
 # =============================================================================
 # Figure 2
 # =============================================================================
@@ -112,7 +118,6 @@ aucroc = roc_auc_score(labels, scores)
 ax.annotate(f'AUC: {"%.2f"%(aucroc)}', (0.5,0.5), ha='left', va='top', fontsize = fsize)
 # ax.set_title('B', loc = 'left')
 fig.savefig(os.path.join(fig_dir, f'Figure2.{filetype}'), bbox_inches = 'tight', dpi = 900)
-plt.close('all')
 
 # =============================================================================
 # Figure 3
@@ -182,7 +187,6 @@ fig.supxlabel('Instrument Used for Testing', x = 0.5, y = 1)
 fig.supylabel('Instrument Used for Training', x = 0.88, y = 0.5)
 
 fig.savefig(os.path.join(fig_dir, f'Figure3.{filetype}'), bbox_inches = 'tight', dpi = 900)
-plt.close('all')
 
 # =============================================================================
 # Figure 4
@@ -240,7 +244,6 @@ ax.set_ylabel('True Positive Rate', fontsize = fsize)
 ax.set_xlabel('False Positive Rate', fontsize = fsize)
 
 fig.savefig(os.path.join(fig_dir, f'Figure4.{filetype}'), bbox_inches = 'tight', dpi = 900)
-plt.close('all')
 
 # =============================================================================
 # Figure S1
@@ -286,11 +289,6 @@ good = pd.concat(good)
 predictors = ['Dot product', 'S/N average', 'isotope_error', 'mz_error', 'rt_error']
 tolog = ['S/N average', 'isotope_error']
 good[tolog] = np.log(good[tolog])
-
-plsda_model = Pipeline([('scalar', StandardScaler()),
-                        ('logreg', PLSRegression(n_components=2))])
-lreg_model = Pipeline([('scalar', StandardScaler()),
-                       ('logreg', LogisticRegression())])
 
 highlight = 'g'
 fig, axes = plt.subplots(nrows = 2, ncols = 2, figsize = (8,8),
@@ -363,3 +361,105 @@ class_counts = class_counts.sort_values('Total', ascending = False)
 class_counts.to_csv('presentations_and_reports/paper/figures/supplementary_table_1.tsv',
                     sep = '\t')
 
+
+# =============================================================================
+# Figure S3
+# =============================================================================
+
+def plot_separability(good, group0, group1):
+    predictors = ['Dot product', 'S/N average', 'isotope_error', 'mz_error', 'rt_error']
+    tolog = ['S/N average', 'isotope_error']
+    good[tolog] = np.log(good[tolog])
+    features = good[predictors].copy()
+    tofold = ['mz_error', 'rt_error']
+    features[tofold] = np.abs(features[tofold])
+    y = good['group']
+    
+    ny, nx = 4,3
+    scale = 2
+    fig = plt.figure(layout = 'constrained',
+                     figsize = (scale*ny,scale*nx))
+    gs = GridSpec(nx, ny, figure=fig)
+    ax1 = fig.add_subplot(gs[:2,:2])
+    ax2 = fig.add_subplot(gs[:2,2:])
+    ax3 = fig.add_subplot(gs[2:,1:3])
+    
+    #PLS-DA
+    X, _ = plsda_model.fit_transform(X = features, y = np.array(y, np.logical_not(y)).T)
+    fit_plsda = plsda_model.fit(X = features, y = np.array(y, np.logical_not(y)).T)
+    ax1.scatter(X[:,0], X[:,1], s = 20, marker = '.', alpha = 0.5,
+               c = [highlight if o else 'k' for o in y])
+    ax1.set_title('A', loc = 'right')
+    ax1.set_xlabel('Component 1')
+    ax1.set_ylabel('Component 2')
+    patches = [mpatches.Patch(color='k', label=f'{group0} Data'),
+               mpatches.Patch(color=highlight, label=f'{group1} Data')]
+    ax1.legend(handles = patches)
+    
+    #Logistic Regression
+    lreg = lreg_model.fit(X = features, 
+                          y = y)
+    ŷ = lreg.predict_proba(X = features)
+    Δ = 0.2
+    ax2.scatter(y + rng.uniform(-Δ,Δ,len(y)), ŷ[:,1], alpha = 0.5, 
+               s = 20, marker = '.', c = [highlight if o else 'k' for o in y])
+    ax2.set_xticks((0,1), (group0, group1))
+    ax2.set_ylabel(f'{group1} Probability')
+    ax2.set_ylim(0,1)
+    ax2.set_title('B', loc = 'right')
+    
+    #coefficents
+    lreg_coef = ['Logistic Regression'] + list(lreg.named_steps['logreg'].coef_[0])
+    plsda_coef = ['PLS-DA'] + list(fit_plsda.named_steps['pls'].x_loadings_[:,0])
+    index = [''] + predictors
+    cols = [index, plsda_coef, lreg_coef]
+    ax3.set_xticks([])
+    ax3.set_yticks([])
+    ax3.spines['top'].set_visible(False)
+    ax3.spines['right'].set_visible(False)
+    ax3.spines['bottom'].set_visible(False)
+    ax3.spines['left'].set_visible(False)
+    
+    for i, col in enumerate(cols):
+        for j, elm in enumerate(col):
+            if type(elm) != str:
+                elm = "%.2f" % round(elm, 2)
+            ax3.text(i/len(cols),
+                     1-j/len(cols),
+                     elm,
+                     ha = 'center',
+                     va = 'center')
+    xlim = (-.15,0.9)
+    ax3.plot(xlim,[0.9]*2,'-k', linewidth = 0.5)
+    ax3.set_ylim(0,1.2)
+    ax3.set_xlim(xlim)
+    ax3.set_title('C', loc = 'right')
+    return fig
+
+data_dir = 'MSDpostprocess/build/'
+qepro = read_data(data_dir + 'QE_Pro_model_training')
+qepro = qepro[qepro['label'] == 1]
+qepro['group'] = [0]*qepro.shape[0]
+tof = read_data(data_dir + 'TOF_model_training')
+tof = tof[tof['label'] == 1]
+tof['group'] = [1]*tof.shape[0]
+good = pd.concat((qepro,tof))
+
+fig = plot_separability(good, 'Orbitrap', 'TOF')
+fig.savefig(f'{fig_dir}FigureS3.png',
+            bbox_inches = 'tight', dpi = 900)
+
+# =============================================================================
+# Figure S4
+# =============================================================================
+
+data_dir = 'MSDpostprocess/build/'
+good = read_data(data_dir + 'QE_Pro_model_training')
+good = good[good['label'] == 1]
+good['group'] = [int(f.startswith('build_data/QE')) for f in good['file']]
+
+fig = plot_separability(good, 'LTQPro', 'QE')
+fig.savefig(f'{fig_dir}FigureS4.png',
+            bbox_inches = 'tight', dpi = 900)
+
+plt.close('all')
