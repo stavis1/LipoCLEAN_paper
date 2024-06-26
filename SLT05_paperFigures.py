@@ -6,7 +6,7 @@ Created on Mon Jun 17 12:34:23 2024
 @author: 4vt
 """
 import os
-os.chdir('/home/4vt/Documents/data/SLT05_MSDpostprocess/')
+os.chdir('/home/4vt/Documents/data/SLT05_LipoCLEAN/')
 import re
 import pandas as pd
 import numpy as np
