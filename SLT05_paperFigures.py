@@ -21,14 +21,19 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
+import pyvips
+
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = 'Verdana'
 
 fig_dir = 'presentations_and_reports/paper/figures/'
 cutoffs = [0.25,0.75]
 size = (6,6)
-filetype = 'png'
+filetypes = ['tif', 'png']
 fsize = 12
 ptsize = 15
 rng = np.random.default_rng(1)
+DPI = 900
 
 def read_data(path):
     files = ('positive_lipids.tsv', 'negative_lipids.tsv', 'reanalyze_lipids.tsv')
@@ -78,6 +83,14 @@ lreg_model = Pipeline([('scalar', StandardScaler()),
                        ('logreg', LogisticRegression())])
 
 # =============================================================================
+# Figure 1
+# =============================================================================
+
+fig1 = pyvips.Image.new_from_file(fig_dir + 'Figure1.svg', dpi = DPI)
+for filetype in filetypes:
+    fig1.write_to_file(fig_dir + f'Figure1.{filetype}')
+
+# =============================================================================
 # Figure 2
 # =============================================================================
 path = 'data/current_datasets/validation_files_with_annotations/QE_Pro_model_validation/'
@@ -117,7 +130,8 @@ ax.set_xlabel('False Positive Rate', fontsize = fsize)
 aucroc = roc_auc_score(labels, scores)
 ax.annotate(f'AUC: {"%.2f"%(aucroc)}', (0.5,0.5), ha='left', va='top', fontsize = fsize)
 # ax.set_title('B', loc = 'left')
-fig.savefig(os.path.join(fig_dir, f'Figure2.{filetype}'), bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(os.path.join(fig_dir, f'Figure2.{filetype}'), bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
 # Figure 3
@@ -134,7 +148,7 @@ for trained in instruments:
 bins = np.linspace(0,1,50)
 yheight = 0
 fig, axes = plt.subplots(nrows = 3, ncols = 3, sharex = True, #sharey = True,
-                         layout = 'constrained', figsize = (8,6))
+                         layout = 'constrained', figsize = (6,6.5))
 for i, trained in enumerate(instruments):
     for j, tested in enumerate(reversed(instruments)):
         data = all_data[(trained, tested)]
@@ -175,18 +189,23 @@ for i, trained in enumerate(instruments):
         y0,y1 = ax.get_ylim()
         for cut in cutoffs:
             ax.plot([cut]*2, (0,y1), '-k', linewidth = 1)
+        
+        k = i*3 + j
+        ax.text(0.5,y1*0.9,'ABCDEFGHI'[k])
+        
         ax.set_ylim(0,y1)
         # yheight = max(y1, yheight)
         
         if i == 0 and j == 2:
             # black_patch = mpatches.Patch(color='k', label='Cutoff')
-            ax.legend(loc = 'right', bbox_to_anchor = (1.72, 0.5))
+            ax.legend(loc = 'upper center', bbox_to_anchor = (0.5,1.44))
     ax.set_xlim(0,1)
 
-fig.supxlabel('Instrument Used for Testing', x = 0.5, y = 1)
-fig.supylabel('Instrument Used for Training', x = 0.88, y = 0.5)
+fig.supxlabel('Instrument Used for Testing', x = 0.5, y = .95)
+fig.supylabel('Instrument Used for Training', x = 1, y = 0.5)
 
-fig.savefig(os.path.join(fig_dir, f'Figure3.{filetype}'), bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(os.path.join(fig_dir, f'Figure3.{filetype}'), bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
 # Figure 4
@@ -243,7 +262,8 @@ ax.set_xlim(-.001,1.001)
 ax.set_ylabel('True Positive Rate', fontsize = fsize)
 ax.set_xlabel('False Positive Rate', fontsize = fsize)
 
-fig.savefig(os.path.join(fig_dir, f'Figure4.{filetype}'), bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(os.path.join(fig_dir, f'Figure4.{filetype}'), bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
 # Figure S1
@@ -271,14 +291,40 @@ ax.set_xlim(-.001,1.001)
 # ax.set_facecolor('lightgrey')
 ax.set_ylabel('True Positive Rate', fontsize = fsize)
 ax.set_xlabel('False Positive Rate', fontsize = fsize)
-fig.savefig(f'{fig_dir}FigureS1.png',
-            bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(f'{fig_dir}FigureS1.png',
+            bbox_inches = 'tight', dpi = DPI)
+
+# =============================================================================
+# table S1
+# =============================================================================
+
+data_dir = 'LipoCLEAN/build/build_data/'
+files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
+data = []
+for f in files:
+    tmp = pd.read_csv(data_dir + f, sep = '\t', skiprows = 4)
+    tmp = tmp[np.isfinite(tmp['label'])]
+    dataset = re.search(r'\A([^_]+)_', f).group(1)
+    if dataset == 'LTQPro':
+        dataset = 1 if 'Laccaria' in f else 2
+    else:
+        dataset = 3 if dataset == 'QE' else 4
+    tmp['dataset'] = [f'Dataset {dataset}']*tmp.shape[0]
+    data.append(tmp)
+data = pd.concat(data)
+
+class_counts = pd.crosstab(data['Ontology'], data['dataset'])
+class_counts['Total'] = np.sum(class_counts, axis =1)
+class_counts = class_counts.sort_values('Total', ascending = False)
+class_counts.index = [c.replace('_', r'\_') for c in class_counts.index]
+class_counts.to_csv('presentations_and_reports/paper/figures/supplementary_table_1.csv')
 
 # =============================================================================
 # Figure S2
 # =============================================================================
 
-data_dir = 'MSDpostprocess/build/QE_Pro_model_training/'
+data_dir = 'LipoCLEAN/build/QE_Pro_model_training/'
 data_files = [f for f in os.listdir(data_dir) if f.endswith('.tsv') and not f.startswith('not_')]
 good = []
 for file in data_files:
@@ -309,7 +355,13 @@ for i,lipid in enumerate(['PI', 'PG']):
         ax2 = ax.twinx()
         ax2.set_ylabel('PLS-DA')
         ax2.set_yticks([])
-
+    y0,y1 = ax.get_ylim()
+    x0,x1 = ax.get_xlim()
+    x_off = .05
+    y_off = .92
+    ax.text(x0 + (x1-x0)*x_off,
+            y0 + (y1-y0)*y_off,
+            'AB'[i])
     
     #Logistic Regression
     tofold = ['mz_error', 'rt_error']
@@ -325,6 +377,11 @@ for i,lipid in enumerate(['PI', 'PG']):
     ax.set_xticks((0,1), ('other lipids', lipid))
     ax.set_ylabel(f'{lipid} Probability')
     ax.set_ylim(0,1)
+    y0,y1 = ax.get_ylim()
+    x0,x1 = ax.get_xlim()
+    ax.text(x0 + (x1-x0)*x_off,
+            y0 + (y1-y0)*y_off,
+            'CD'[i])
     if i == 1:
         ax2 = ax.twinx()
         ax2.set_ylabel('Logistic Regression')
@@ -333,34 +390,9 @@ for i,lipid in enumerate(['PI', 'PG']):
         patches = [mpatches.Patch(color='k', label='other lipids'),
                    mpatches.Patch(color=highlight, label='class of interest')]
         ax.legend(handles = patches)
-fig.savefig(f'{fig_dir}FigureS2.png',
-            bbox_inches = 'tight', dpi = 900)
-
-# =============================================================================
-# table S1
-# =============================================================================
-
-data_dir = 'MSDpostprocess/build/build_data/'
-files = [f for f in os.listdir(data_dir) if f.endswith('.txt')]
-data = []
-for f in files:
-    tmp = pd.read_csv(data_dir + f, sep = '\t', skiprows = 4)
-    tmp = tmp[np.isfinite(tmp['label'])]
-    dataset = re.search(r'\A([^_]+)_', f).group(1)
-    if dataset == 'LTQPro':
-        dataset = 1 if 'Laccaria' in f else 2
-    else:
-        dataset = 3 if dataset == 'QE' else 4
-    tmp['dataset'] = [f'Dataset {dataset}']*tmp.shape[0]
-    data.append(tmp)
-data = pd.concat(data)
-
-class_counts = pd.crosstab(data['Ontology'], data['dataset'])
-class_counts['Total'] = np.sum(class_counts, axis =1)
-class_counts = class_counts.sort_values('Total', ascending = False)
-class_counts.to_csv('presentations_and_reports/paper/figures/supplementary_table_1.tsv',
-                    sep = '\t')
-
+for filetype in filetypes:
+    fig.savefig(f'{fig_dir}FigureS2.{filetype}',
+            bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
 # Figure S3
@@ -436,7 +468,7 @@ def plot_separability(good, group0, group1):
     ax3.set_title('C', loc = 'right')
     return fig
 
-data_dir = 'MSDpostprocess/build/'
+data_dir = 'LipoCLEAN/build/'
 qepro = read_data(data_dir + 'QE_Pro_model_training')
 qepro = qepro[qepro['label'] == 1]
 qepro['group'] = [0]*qepro.shape[0]
@@ -446,20 +478,29 @@ tof['group'] = [1]*tof.shape[0]
 good = pd.concat((qepro,tof))
 
 fig = plot_separability(good, 'Orbitrap', 'TOF')
-fig.savefig(f'{fig_dir}FigureS3.png',
-            bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(f'{fig_dir}FigureS3.{filetype}',
+            bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
 # Figure S4
 # =============================================================================
 
-data_dir = 'MSDpostprocess/build/'
+data_dir = 'LipoCLEAN/build/'
 good = read_data(data_dir + 'QE_Pro_model_training')
 good = good[good['label'] == 1]
 good['group'] = [int(f.startswith('build_data/QE')) for f in good['file']]
 
 fig = plot_separability(good, 'LTQPro', 'QE')
-fig.savefig(f'{fig_dir}FigureS4.png',
-            bbox_inches = 'tight', dpi = 900)
+for filetype in filetypes:
+    fig.savefig(f'{fig_dir}FigureS4.png',
+            bbox_inches = 'tight', dpi = DPI)
 
-plt.close('all')
+# =============================================================================
+# Figure S5
+# =============================================================================
+
+fig_dir = 'presentations_and_reports/paper/figures/'
+fig1 = pyvips.Image.new_from_file(fig_dir + 'FigureS5.svg', dpi = DPI)
+for filetype in filetypes:
+    fig1.write_to_file(fig_dir + f'FigureS5.{filetype}')
