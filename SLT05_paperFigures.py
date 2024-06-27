@@ -28,12 +28,12 @@ plt.rcParams['font.sans-serif'] = 'Verdana'
 
 fig_dir = 'presentations_and_reports/paper/figures/'
 cutoffs = [0.25,0.75]
-size = (6,6)
+size = np.array((6,6))
 filetypes = ['tif', 'png']
 fsize = 12
-ptsize = 15
 rng = np.random.default_rng(1)
 DPI = 900
+highlight = 'g'
 
 def read_data(path):
     files = ('positive_lipids.tsv', 'negative_lipids.tsv', 'reanalyze_lipids.tsv')
@@ -102,10 +102,11 @@ labels = data['label']
 
 tprs, fprs = ROC(scores, labels)
 
+scale = 0.9
 #make base plot
-fig, ax = plt.subplots(figsize = size)
-ax.plot(fprs,tprs,'-k', linewidth = 1)
-ax.plot([0,1],[0,1], '--g', linewidth = 0.5)
+fig, ax = plt.subplots(figsize = size*scale)
+ax.plot(fprs,tprs,'-k', linewidth = 1, zorder = -1)
+ax.plot([0,1],[0,1], '--g', linewidth = 0.5, zorder = -1)
 
 #annotate cutoffs
 for cutoff in cutoffs:
@@ -113,7 +114,7 @@ for cutoff in cutoffs:
     tn,fp,fn,tp = confusion_matrix(labels, calls).flatten()
     tpr = TPR(tn,fp,fn,tp)
     fpr = FPR(tn,fp,fn,tp)
-    ax.scatter(fpr, tpr, s = ptsize, color = 'g', marker = '.')
+    ax.scatter(fpr, tpr, s = 25, color = highlight, marker = '.', zorder = 1)
     fdr = FDR(tn,fp,fn,tp)
     ax.text(fpr, tpr, f'cutoff: {cutoff}\nFDR: {"%.2f"%(fdr)}\nrecall: {"%.2f"%(tpr)}', 
             ha = 'left', va = 'top', fontsize = fsize)
@@ -136,25 +137,29 @@ for filetype in filetypes:
 # =============================================================================
 # Figure 3
 # =============================================================================
-instruments = ['LTQPro', 'QE', 'QTOF']
+instruments = ['OrbiPro', 'QE', 'QTOF']
 
 all_data = {}
 for trained in instruments:
     for tested in instruments:
-        path = f'data/other_analyses/instrumentCrossTraining/instrumentCrossTraining_{trained}|{tested}/'
+        tr = 'LTQPro' if trained == 'OrbiPro' else trained
+        te = 'LTQPro' if tested == 'OrbiPro' else tested
+        path = f'data/other_analyses/instrumentCrossTraining/instrumentCrossTraining_{tr}|{te}/'
         all_data[(trained, tested)] = read_data(path)
         
 
 bins = np.linspace(0,1,50)
 yheight = 0
+scale = 0.82
 fig, axes = plt.subplots(nrows = 3, ncols = 3, sharex = True, #sharey = True,
-                         layout = 'constrained', figsize = (6,6.5))
+                         layout = 'constrained', figsize = (6*scale,6.5*scale))
 for i, trained in enumerate(instruments):
     for j, tested in enumerate(reversed(instruments)):
         data = all_data[(trained, tested)]
+        data = data[np.isfinite(data['label'])]
         assert min(data['score']) >= 0
         assert max(data['score']) <= 1
-
+        
         ax = axes[i,j]
         if i == 2:
             ax.set_xlabel('Score')
@@ -163,19 +168,20 @@ for i, trained in enumerate(instruments):
         if i == 0:
             ax.set_title(tested, fontsize = 10)
         if j == 0:
-            ax.set_ylabel('Number of Lipids')
+            ax.set_ylabel('Frequency of Lipids')
         else:
             ax.yaxis.set_ticks_position('none') 
         if j == 2:
             ax.yaxis.set_label_position("right")
             ax.set_ylabel(trained)
-        ax.tick_params(axis='both', which='major', labelsize=7)    
+        ax.tick_params(axis='both', which='major', labelsize=7) 
+        ax.set_yticks([])
         
         if 'split' in data.columns:
             data = data[data['split'] == 'test']
         ax.hist(data[data['label'] == 1]['score'],
                 bins = bins, 
-                color = 'g', 
+                color = highlight, 
                 alpha = 0.5, 
                 label = 'True',
                 histtype='stepfilled')
@@ -192,17 +198,25 @@ for i, trained in enumerate(instruments):
         
         k = i*3 + j
         ax.text(0.5,y1*0.9,'ABCDEFGHI'[k])
+        ax.text(0.5,y1*0.55,f'Nt = {data[data["label"] == 1].shape[0]}',
+                ha = 'center', va = 'center', color = highlight)
+        ax.text(0.5,y1*0.45,f'Nf = {data[data["label"] == 0].shape[0]}',
+                ha = 'center', va = 'center', color = 'k')
         
         ax.set_ylim(0,y1)
-        # yheight = max(y1, yheight)
+        ax.set_xticks((0, 0.25, 0.75, 1),('0', '0.25', '0.75', '1'))
         
-        if i == 0 and j == 2:
-            # black_patch = mpatches.Patch(color='k', label='Cutoff')
-            ax.legend(loc = 'upper center', bbox_to_anchor = (0.5,1.44))
+        tsize = 9
+        ax.tick_params(axis='x', labelsize=tsize)
+        ax.tick_params(axis='y', labelsize=tsize)
+        
+        # if i == 0 and j == 2:
+        #     ax.legend(loc = 'upper center', bbox_to_anchor = (0.6,1.54))
     ax.set_xlim(0,1)
 
-fig.supxlabel('Instrument Used for Testing', x = 0.5, y = .95)
+fig.supxlabel('Instrument Used for Testing', x = 0.5, y = 1)#y = 0.93)
 fig.supylabel('Instrument Used for Training', x = 1, y = 0.5)
+
 
 for filetype in filetypes:
     fig.savefig(os.path.join(fig_dir, f'Figure3.{filetype}'), bbox_inches = 'tight', dpi = DPI)
@@ -238,14 +252,15 @@ colorvals = [d.shape[0] for d in class_data.values()]
 colors = get_colors(colorvals)
 sm = get_sm(colorvals)
 
-fig, ax = plt.subplots()
+scale = 0.85
+fig, ax = plt.subplots(figsize = size*scale)
 for i,lclass in enumerate(class_data.keys()):
     data = class_data[lclass]
 
     tprs, fprs = ROC(data['score'], data['label'])
     ax.plot(fprs, tprs, '-', color = colors[i], linewidth = 1)
 
-fsize = 8
+fsize = 10
 ax.text(0.215, .52, 'PI', ha = 'left', va = 'top', fontsize = fsize)
 ax.text(0.47, .88, 'PG', ha = 'left', va = 'top', fontsize = fsize)
 
@@ -336,7 +351,6 @@ predictors = ['Dot product', 'S/N average', 'isotope_error', 'mz_error', 'rt_err
 tolog = ['S/N average', 'isotope_error']
 good[tolog] = np.log(good[tolog])
 
-highlight = 'g'
 fig, axes = plt.subplots(nrows = 2, ncols = 2, figsize = (8,8),
                        layout = 'constrained')
 for i,lipid in enumerate(['PI', 'PG']):
