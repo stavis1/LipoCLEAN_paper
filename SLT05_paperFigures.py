@@ -281,7 +281,7 @@ for filetype in filetypes:
     fig.savefig(os.path.join(fig_dir, f'Figure4.{filetype}'), bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
-# Figure S1
+# Figure S6
 # =============================================================================
 
 data_dir = 'data/other_analyses/trainingStability/'
@@ -293,7 +293,7 @@ for result in os.listdir(data_dir):
     results.append(data)
 
 fig, ax = plt.subplots()
-for result in results:
+for c,result in zip(colors,results):
     tprs, fprs = ROC(result['score'], result['label'])
     ax.plot(fprs, tprs, '-k', linewidth = 1, alpha = 0.5)
 
@@ -307,7 +307,7 @@ ax.set_xlim(-.001,1.001)
 ax.set_ylabel('True Positive Rate', fontsize = fsize)
 ax.set_xlabel('False Positive Rate', fontsize = fsize)
 for filetype in filetypes:
-    fig.savefig(f'{fig_dir}FigureS1.png',
+    fig.savefig(f'{fig_dir}FigureS6.{filetype}',
             bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
@@ -336,7 +336,7 @@ class_counts.index = [c.replace('_', r'\_') for c in class_counts.index]
 class_counts.to_csv('presentations_and_reports/paper/figures/supplementary_table_1.csv')
 
 # =============================================================================
-# Figure S2
+# Figure S7
 # =============================================================================
 
 data_dir = 'LipoCLEAN/build/QE_Pro_model_training/'
@@ -405,11 +405,11 @@ for i,lipid in enumerate(['PI', 'PG']):
                    mpatches.Patch(color=highlight, label='class of interest')]
         ax.legend(handles = patches)
 for filetype in filetypes:
-    fig.savefig(f'{fig_dir}FigureS2.{filetype}',
+    fig.savefig(f'{fig_dir}FigureS7.{filetype}',
             bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
-# Figure S3
+# Figure S4
 # =============================================================================
 
 def plot_separability(good, group0, group1):
@@ -493,11 +493,11 @@ good = pd.concat((qepro,tof))
 
 fig = plot_separability(good, 'Orbitrap', 'TOF')
 for filetype in filetypes:
-    fig.savefig(f'{fig_dir}FigureS3.{filetype}',
+    fig.savefig(f'{fig_dir}FigureS4.{filetype}',
             bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
-# Figure S4
+# Figure S5
 # =============================================================================
 
 data_dir = 'LipoCLEAN/build/'
@@ -505,16 +505,16 @@ good = read_data(data_dir + 'QE_Pro_model_training')
 good = good[good['label'] == 1]
 good['group'] = [int(f.startswith('build_data/QE')) for f in good['file']]
 
-fig = plot_separability(good, 'LTQPro', 'QE')
+fig = plot_separability(good, 'OrbiPro', 'QE')
 for filetype in filetypes:
-    fig.savefig(f'{fig_dir}FigureS4.png',
+    fig.savefig(f'{fig_dir}FigureS5.png',
             bbox_inches = 'tight', dpi = DPI)
 
 # =============================================================================
-# Figure S5
+# Figure S3
 # =============================================================================
 
 fig_dir = 'presentations_and_reports/paper/figures/'
-fig1 = pyvips.Image.new_from_file(fig_dir + 'FigureS5.svg', dpi = DPI)
+fig1 = pyvips.Image.new_from_file(fig_dir + 'FigureS3.svg', dpi = DPI)
 for filetype in filetypes:
-    fig1.write_to_file(fig_dir + f'FigureS5.{filetype}')
+    fig1.write_to_file(fig_dir + f'FigureS3.{filetype}')
