@@ -201,7 +201,7 @@ for cutoff in cutoffs:
     tn,fp,fn,tp = confusion_matrix(labels, calls).flatten()
     tpr = TPR(tn,fp,fn,tp)
     fpr = FPR(tn,fp,fn,tp)
-    ax.scatter(fpr, tpr, s = 25, color = highlight, marker = '.', zorder = 1)
+    ax.scatter(fpr, tpr, s = 30, color = highlight, marker = 'X', zorder = 1)
     fdr = FDR(tn,fp,fn,tp)
     ax.text(fpr, tpr, f'cutoff: {cutoff}\nFDR: {"%.2f"%(fdr)}\nrecall: {"%.2f"%(tpr)}', 
             ha = 'left', va = 'top', fontsize = fsize)
