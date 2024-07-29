@@ -93,50 +93,6 @@ for filetype in filetypes:
 # =============================================================================
 # Figure 2
 # =============================================================================
-path = 'data/current_datasets/validation_files_with_annotations/QE_Pro_model_validation/'
-data = read_data(path)
-data = data[np.isfinite(data['label'])]
-
-scores = data['score']
-labels = data['label']
-
-tprs, fprs = ROC(scores, labels)
-
-scale = 0.9
-#make base plot
-fig, ax = plt.subplots(figsize = size*scale)
-ax.plot(fprs,tprs,'-k', linewidth = 1, zorder = -1)
-ax.plot([0,1],[0,1], '--g', linewidth = 0.5, zorder = -1)
-
-#annotate cutoffs
-for cutoff in cutoffs:
-    calls = [yhat >= cutoff for yhat in scores]
-    tn,fp,fn,tp = confusion_matrix(labels, calls).flatten()
-    tpr = TPR(tn,fp,fn,tp)
-    fpr = FPR(tn,fp,fn,tp)
-    ax.scatter(fpr, tpr, s = 25, color = highlight, marker = '.', zorder = 1)
-    fdr = FDR(tn,fp,fn,tp)
-    ax.text(fpr, tpr, f'cutoff: {cutoff}\nFDR: {"%.2f"%(fdr)}\nrecall: {"%.2f"%(tpr)}', 
-            ha = 'left', va = 'top', fontsize = fsize)
-
-#format plot
-y0,y1 = ax.get_ylim()
-x0,x1 = ax.get_xlim()
-ax.set_aspect(abs(x1-x0)/abs(y1-y0))
-ax.set_ylim(-.001,1.001)
-ax.set_xlim(-.001,1.001)
-# ax.set_facecolor('lightgrey')
-ax.set_ylabel('True Positive Rate', fontsize = fsize)
-ax.set_xlabel('False Positive Rate', fontsize = fsize)
-aucroc = roc_auc_score(labels, scores)
-ax.annotate(f'AUC: {"%.2f"%(aucroc)}', (0.5,0.5), ha='left', va='top', fontsize = fsize)
-# ax.set_title('B', loc = 'left')
-for filetype in filetypes:
-    fig.savefig(os.path.join(fig_dir, f'Figure2.{filetype}'), bbox_inches = 'tight', dpi = DPI)
-
-# =============================================================================
-# Figure 3
-# =============================================================================
 instruments = ['OrbiPro', 'QE', 'QTOF']
 
 all_data = {}
@@ -219,7 +175,52 @@ fig.supylabel('Instrument Used for Training', x = 1, y = 0.5)
 
 
 for filetype in filetypes:
+    fig.savefig(os.path.join(fig_dir, f'Figure2.{filetype}'), bbox_inches = 'tight', dpi = DPI)
+
+# =============================================================================
+# Figure 3
+# =============================================================================
+path = 'data/current_datasets/validation_files_with_annotations/QE_Pro_model_validation/'
+data = read_data(path)
+data = data[np.isfinite(data['label'])]
+
+scores = data['score']
+labels = data['label']
+
+tprs, fprs = ROC(scores, labels)
+
+scale = 0.9
+#make base plot
+fig, ax = plt.subplots(figsize = size*scale)
+ax.plot(fprs,tprs,'-k', linewidth = 1, zorder = -1)
+ax.plot([0,1],[0,1], '--g', linewidth = 0.5, zorder = -1)
+
+#annotate cutoffs
+for cutoff in cutoffs:
+    calls = [yhat >= cutoff for yhat in scores]
+    tn,fp,fn,tp = confusion_matrix(labels, calls).flatten()
+    tpr = TPR(tn,fp,fn,tp)
+    fpr = FPR(tn,fp,fn,tp)
+    ax.scatter(fpr, tpr, s = 25, color = highlight, marker = '.', zorder = 1)
+    fdr = FDR(tn,fp,fn,tp)
+    ax.text(fpr, tpr, f'cutoff: {cutoff}\nFDR: {"%.2f"%(fdr)}\nrecall: {"%.2f"%(tpr)}', 
+            ha = 'left', va = 'top', fontsize = fsize)
+
+#format plot
+y0,y1 = ax.get_ylim()
+x0,x1 = ax.get_xlim()
+ax.set_aspect(abs(x1-x0)/abs(y1-y0))
+ax.set_ylim(-.001,1.001)
+ax.set_xlim(-.001,1.001)
+# ax.set_facecolor('lightgrey')
+ax.set_ylabel('True Positive Rate', fontsize = fsize)
+ax.set_xlabel('False Positive Rate', fontsize = fsize)
+aucroc = roc_auc_score(labels, scores)
+ax.annotate(f'AUC: {"%.2f"%(aucroc)}', (0.5,0.5), ha='left', va='top', fontsize = fsize)
+# ax.set_title('B', loc = 'left')
+for filetype in filetypes:
     fig.savefig(os.path.join(fig_dir, f'Figure3.{filetype}'), bbox_inches = 'tight', dpi = DPI)
+
 
 # =============================================================================
 # Figure 4
