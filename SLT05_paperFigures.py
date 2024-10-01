@@ -32,7 +32,7 @@ size = np.array((6,6))
 filetypes = ['tif', 'png']
 fsize = 12
 rng = np.random.default_rng(1)
-DPI = 900
+DPI = 300
 highlight = 'g'
 
 def read_data(path):
@@ -86,7 +86,7 @@ lreg_model = Pipeline([('scalar', StandardScaler()),
 # Figure 1
 # =============================================================================
 
-fig1 = pyvips.Image.new_from_file(fig_dir + 'Figure1.svg', dpi = DPI)
+fig1 = pyvips.Image.new_from_file(fig_dir + 'Figure1.svg', dpi = 300)
 for filetype in filetypes:
     fig1.write_to_file(fig_dir + f'Figure1.{filetype}')
 
