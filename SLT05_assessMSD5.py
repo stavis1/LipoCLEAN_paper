@@ -81,6 +81,8 @@ for new_filename, old_filename in file_mapping:
     #set up data structures for fast lookup of relavent data
     new_id_align = {i:a for i,a in zip(new_data.index, new_data['Alignment ID'])}
     old_id_align = {i:a for i,a in zip(old_data.index, old_data['Alignment ID'])}
+    new_id_name = {i:a for i,a in zip(new_data.index, new_data['lipid_name'])}
+    old_id_name = {i:a for i,a in zip(old_data.index, old_data['lipid_name'])}
     old_mz_list = SortedList(zip(old_data['Average Mz'], old_data.index))
     old_rt_list = SortedList(zip(old_data['Average Rt(min)'], old_data.index))
     
@@ -123,26 +125,27 @@ for new_filename, old_filename in file_mapping:
     #save newly labeled data
     new_data.to_csv(f'labeled_MSD5_data/{new_filename}')
     
-    
     #collect data for the uncertianly mapped population
     unc_new_old_idx_map = {m[0]:[h[0] for h in m[1]] for m in uncertain_mappings}
-    unc_ids = list(unc_new_old_idx_map.keys())
+    unc_new_ids = list(unc_new_old_idx_map.keys())
 
     unc_old_new_idx_map = defaultdict(lambda:[])
-    for idx in unc_ids:
-        for hit in unc_new_old_idx_map[idx]:
-            unc_old_new_idx_map[hit].append(idx)
+    for new_idx in unc_new_ids:
+        for old_idx in unc_new_old_idx_map[new_idx]:
+            unc_old_new_idx_map[old_idx].append(new_idx)
 
-    unc_new = new_data.loc[unc_ids]
-    unc_new['hits'] = [';'.join(str(old_id_align[i]) for i in unc_new_old_idx_map[h]) for h in unc_ids]
+    unc_new = new_data.loc[unc_new_ids]
+    unc_new['hit_align_ids'] = [';'.join(str(old_id_align[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
+    unc_new['hit_names'] = [';'.join(str(old_id_name[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
     unc_new.to_csv(f'uncertain_mappings/{new_filename}',
                    sep = '\t', 
                    index = False)
     
-    unc_hit_ids = unc_old_new_idx_map.keys()
-    unc_old = old_data.loc[unc_hit_ids]
-    unc_old['hits'] = [';'.join(str(new_id_align[i]) for i in unc_old_new_idx_map[h]) for h in unc_hit_ids]
-    unc_new.to_csv(f'uncertain_mappings/{old_filename}',
+    unc_old_ids = unc_old_new_idx_map.keys()
+    unc_old = old_data.loc[unc_old_ids]
+    unc_old['hit_align_ids'] = [';'.join(str(new_id_align[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
+    unc_old['hit_names'] = [';'.join(str(new_id_name[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
+    unc_old.to_csv(f'uncertain_mappings/{old_filename}',
                    sep = '\t', 
                    index = False)
     
