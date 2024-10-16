@@ -22,9 +22,7 @@ file_mapping =  [('Aspergillus37_neg_mz_MD5.txt', 'MSD4_LTQPro_LCO-Asp37_mzexpor
                  ('Laccaria_neg_mz_MD5.txt', 'MSD4_LTQPro_LCO-Laccaria_mzexport_negative.txt'),
                  ('Laccaria_pos_mz_MD5.txt', 'MSD4_LTQPro_LCO-Laccaria_mzexport_positive.txt'),
                  ('QE_neg_mz_MD5.txt', 'MSD4_QE_MTBLS5583_mzexport_negative_andrewcpu.txt'),
-                 ('QE_pos_mz_MD5.txt', 'MSD4_QE_MTBLS5583_mzexport_positive_0_202456119.txt'),
-                 ('QTOF_neg_mz_MD5.txt', 'MSD4_QTOF_MTBLS4108_mzexport_negative_firstproc.txt'),
-                 ('QTOF_pos_mz_MD5.txt', 'MSD4_QTOF_MTBLS4108_mzexport_positive_mzexport.txt')]
+                 ('QE_pos_mz_MD5.txt', 'MSD4_QE_MTBLS5583_mzexport_positive_0_202456119.txt')]
 
 #this finds features in the new data that are close to labeled features in the old data
 def find_matches(mz, rt, idx):
@@ -37,6 +35,12 @@ def find_matches(mz, rt, idx):
 #a hit is bad if there are multiple features in the old data and they do not all have the same
 #lipid_name and label
 isbad = lambda h: len(set(old_data.loc[[m[0] for m in h[1]],'name_label'])) > 1
+
+#Some lipid naming schemes changed between MS-DIAL 4 and 5 that we cannot properly account for with string matching.
+#To handle this we have manually curated a list of names that are in fact referring to the same lipid species.
+#We load that list in here.
+with open('name_mapping_whitelist.tsv', 'r') as tsv:
+    name_mapping_whitelist = set(tuple(m.strip().split('\t')) for m in tsv.read().strip().split('\n'))
 
 #labels do not get transfered if isbad is true
 #or if the feature was labeled as a false positive but MS-DIAL 5 identifies it differently from 4
@@ -52,11 +56,14 @@ def transfer_label(hit):
         return hit_label
     else:
         if hit_label == 1:
-            return 0
+            if (query_lipid, hit_lipid) in name_mapping_whitelist:
+                return 1
+            else:
+                return 0
         elif hit_label == 0:
             uncertain_mappings.append(hit)
             return np.nan
-    raise NotImplementedError
+    raise NotImplementedError()
 
 summary_stats = []
 for new_filename, old_filename in file_mapping:
@@ -65,7 +72,7 @@ for new_filename, old_filename in file_mapping:
                            sep = '\t',
                            skiprows = 4)
     new_data = new_data[new_data['MS/MS matched']]
-    
+        
     #the labeled training data searched with MS-DIAL 4
     old_data = pd.read_csv(old_filename,
                            sep = '\t',
@@ -122,32 +129,46 @@ for new_filename, old_filename in file_mapping:
     transferred_labels = defaultdict(lambda: np.nan, transferred_labels)
     new_data['label'] = [transferred_labels[i] for i in new_data.index]
     
+    #add manually reannotated labels
+    relabeled_data = pd.read_csv(new_filename[:-4] + '_add.txt', sep = '\t')
+    relabels = {aid:label for aid, label in zip(relabeled_data['Alignment ID'], relabeled_data['label'])}
+    to_relabel = set(relabels.keys())
+    new_data['label'] = [relabels[a] if a in to_relabel else l for a,l in zip(new_data['Alignment ID'], new_data['label'])]
+    
+    #reorder columns to work with LipoCLEAN
+    del new_data['lipid_name']
+    cols = ['label'] + list(new_data.columns)[:-1] 
+    new_data = new_data[cols]
+    
     #save newly labeled data
-    new_data.to_csv(f'labeled_MSD5_data/{new_filename}')
+    new_data.to_csv(f'labeled_MSD5_data/{new_filename}', 
+                    sep = '\t',
+                    index = False)
     
-    #collect data for the uncertianly mapped population
-    unc_new_old_idx_map = {m[0]:[h[0] for h in m[1]] for m in uncertain_mappings}
-    unc_new_ids = list(unc_new_old_idx_map.keys())
+    #This section was used to identify the set of entries that required manual reanalysis
+    # #collect data for the uncertianly mapped population
+    # unc_new_old_idx_map = {m[0]:[h[0] for h in m[1]] for m in uncertain_mappings}
+    # unc_new_ids = list(unc_new_old_idx_map.keys())
 
-    unc_old_new_idx_map = defaultdict(lambda:[])
-    for new_idx in unc_new_ids:
-        for old_idx in unc_new_old_idx_map[new_idx]:
-            unc_old_new_idx_map[old_idx].append(new_idx)
+    # unc_old_new_idx_map = defaultdict(lambda:[])
+    # for new_idx in unc_new_ids:
+    #     for old_idx in unc_new_old_idx_map[new_idx]:
+    #         unc_old_new_idx_map[old_idx].append(new_idx)
 
-    unc_new = new_data.loc[unc_new_ids]
-    unc_new['hit_align_ids'] = [';'.join(str(old_id_align[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
-    unc_new['hit_names'] = [';'.join(str(old_id_name[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
-    unc_new.to_csv(f'uncertain_mappings/{new_filename}',
-                   sep = '\t', 
-                   index = False)
+    # unc_new = new_data.loc[unc_new_ids]
+    # unc_new['hit_align_ids'] = [';'.join(str(old_id_align[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
+    # unc_new['hit_names'] = [';'.join(str(old_id_name[i]) for i in unc_new_old_idx_map[h]) for h in unc_new_ids]
+    # unc_new.to_csv(f'uncertain_mappings/{new_filename}',
+    #                sep = '\t', 
+    #                index = False)
     
-    unc_old_ids = unc_old_new_idx_map.keys()
-    unc_old = old_data.loc[unc_old_ids]
-    unc_old['hit_align_ids'] = [';'.join(str(new_id_align[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
-    unc_old['hit_names'] = [';'.join(str(new_id_name[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
-    unc_old.to_csv(f'uncertain_mappings/{old_filename}',
-                   sep = '\t', 
-                   index = False)
+    # unc_old_ids = unc_old_new_idx_map.keys()
+    # unc_old = old_data.loc[unc_old_ids]
+    # unc_old['hit_align_ids'] = [';'.join(str(new_id_align[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
+    # unc_old['hit_names'] = [';'.join(str(new_id_name[i]) for i in unc_old_new_idx_map[h]) for h in unc_old_ids]
+    # unc_old.to_csv(f'uncertain_mappings/{old_filename}',
+    #                sep = '\t', 
+    #                index = False)
     
     #store information about the file
     new_label_counts = Counter(new_data['label'])
